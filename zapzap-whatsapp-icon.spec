@@ -1,5 +1,5 @@
 Name:           zapzap-whatsapp-icon
-Version:        1.2
+Version:        1.4
 Release:        1%{?dist}
 Summary:        Monochrome WhatsApp tray icon for ZapZap, with a discreet unread counter
 
@@ -75,6 +75,20 @@ fi
 :
 
 %changelog
+* Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.4-1
+- Notifications follow the chosen tray theme too. IconRenderer.default_icon
+  called TrayIcon.getIcon() with no argument, so it always got the green
+  default regardless of what the user had picked.
+- Also ships an application-icon override for the user's icon theme, so the
+  small logo beside the notification title and in the launcher stops being
+  the only coloured thing on screen. Remove the file to undo.
+
+* Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.3-1
+- The mark no longer fills the whole frame. Measured the ink of the
+  neighbouring tray icons on a real panel: all 18 px tall, while this one
+  came out at 22. Symbolic icons carry built-in margin; filling the frame
+  made the mark stand out of the row.
+
 * Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.2-1
 - The mark is now the canonical WhatsApp geometry: an OUTLINED bubble with a
   filled handset. The previous drawing was the negative of that — a filled

@@ -19,6 +19,7 @@ import os
 import sys
 
 ALVO = "zapzap.assets.icons.tray_icon"
+ALVO_NOTIF = "zapzap.features.notifications.freedesktop_notification_backend"
 
 
 def _encadear_original():
@@ -71,7 +72,10 @@ def _instalar():
         def exec_module(self, modulo):
             self._interno.exec_module(modulo)
             try:
-                _remendar(modulo)
+                if modulo.__name__ == ALVO_NOTIF:
+                    _remendar_notificacao(modulo)
+                else:
+                    _remendar(modulo)
             except Exception as e:            # noqa: BLE001
                 print(f"[zapzap-whatsapp-icon] remendo não aplicado: {e}",
                       file=sys.stderr)
@@ -80,7 +84,7 @@ def _instalar():
         _ocupado = False
 
         def find_spec(self, nome, caminho=None, alvo=None):
-            if nome != ALVO or _Localizador._ocupado:
+            if nome not in (ALVO, ALVO_NOTIF) or _Localizador._ocupado:
                 return None
             # Reentrância: find_spec abaixo dispararia este mesmo localizador.
             _Localizador._ocupado = True
@@ -125,6 +129,53 @@ def _instalar():
             return TrayIcon._TrayIcon__build(_svg(int(qtd or 0), cor))
 
         TrayIcon.getIcon = getIcon
+
+    def _remendar_notificacao(modulo):
+        """A notificação usa o ícone da bandeja — mas sem dizer qual tema.
+
+        `IconRenderer.default_icon` chama `TrayIcon.getIcon()` sem argumento,
+        e o padrão do parâmetro é `Type.Default`: o logo verde. É o ícone que
+        aparece no aviso quando não há foto do contato. Aqui ele passa a
+        seguir o tema que o usuário escolheu para a bandeja.
+
+        O tema é lido de `AppearanceSettings`, que é a mesma fonte que o
+        gerenciador da bandeja usa. Uma tentativa anterior importava um
+        `Settings` que não existe no pacote; o erro foi capturado e o ícone
+        original devolvido, mas o remendo não entrou. Ler da mesma fonte que
+        o aplicativo lê evita adivinhar o formato do valor.
+
+        Se o usuário escolheu `default`, nada muda — continua verde, que é a
+        escolha dele.
+        """
+        Renderer = modulo.IconRenderer
+        original = Renderer.default_icon.__func__
+
+        def _tema_atual():
+            from zapzap.assets.icons.tray_icon import TrayIcon as T
+            from zapzap.core.config.settings.appearance import AppearanceSettings
+            return T.Type(AppearanceSettings().tray_theme)
+
+        @classmethod
+        def default_icon(cls):
+            try:
+                from zapzap.assets.icons.tray_icon import TrayIcon as T
+                tema = _tema_atual()
+            except Exception:                 # noqa: BLE001
+                # Sem descobrir o tema, não se inventa: devolve o original.
+                return original(cls)
+            if tema == T.Type.Default:
+                return original(cls)
+            try:
+                import os
+                from PyQt6.QtCore import QSize
+                pix = T.getIcon(tema).pixmap(QSize(128, 128))
+                caminho = os.path.join(cls.temp_dir(), "com.rtosta.zapzap.png")
+                pix.save(caminho)
+                return caminho
+            except Exception:                 # noqa: BLE001
+                return original(cls)
+
+        Renderer.default_icon = default_icon
 
     sys.meta_path.insert(0, _Localizador())
 
