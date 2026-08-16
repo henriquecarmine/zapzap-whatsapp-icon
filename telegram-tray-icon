@@ -1,0 +1,192 @@
+#!/usr/bin/env bash
+# Liga e desliga a marca monocromática do Telegram na bandeja.
+#
+# Aqui não há remendo em programa nenhum: o Telegram já pede o ícone ao tema.
+# O trabalho é fazer o tema responder com o nosso desenho — e isso deu mais
+# briga do que parecia. O que foi medido, para quem vier depois não repetir:
+#
+# 1. O NOME PEDIDO NÃO É O NOME ANUNCIADO. O Telegram publica
+#    `org.telegram.desktop-symbolic` no StatusNotifierItem, mas a bandeja do
+#    Plasma busca `telegram-panel`. Flagrado com inotify nas pastas de tema:
+#    com o painel reiniciando, o arquivo aberto foi
+#    /usr/share/icons/breeze-dark/status/22/telegram-panel.svg. Por isso os
+#    três nomes vão gravados.
+#
+# 2. ACRESCENTAR ARQUIVO A UM TEMA DO SISTEMA NÃO ADIANTA. Com o mesmo
+#    desenho em ~/.local/share/icons/breeze-dark/status/{22,24}, sob todos os
+#    nomes, com index.theme copiado e cache limpo, o painel continuou lendo o
+#    arquivo do /usr. Testado também em pasta que vem ANTES do /usr no
+#    XDG_DATA_DIRS: mesmo resultado. Num tema que existe nos dois lugares, o
+#    do sistema ganha.
+#
+# 3. TEMA PRÓPRIO FUNCIONA. Trocando o tema de ícones para um que só existe
+#    no lar do usuário (o kora, para teste), a bandeja mudou na hora. Então é
+#    isso que se faz aqui: um tema pequeno, com os ícones do Telegram e nada
+#    mais, HERDANDO o tema em uso — o resto da fileira continua igual.
+#
+# Nada é escrito em /usr nem dentro do flatpak. Desligar devolve o tema
+# anterior e apaga a pasta.
+set -uo pipefail
+
+# Cópia-mestre, entregue pelo pacote. No pacote a arte fica em arte/; no
+# repositório ela fica na raiz, e aceitar os dois deixa `ZAPZAP_ICON_DIR=.
+# ./telegram-tray-icon --ativar` funcionar num clone, sem montar nada antes.
+MESTRE=${ZAPZAP_ICON_DIR:-/usr/share/zapzap-whatsapp-icon}
+ARTE="$MESTRE/arte"
+[ -f "$ARTE/telegram-symbolic.svg" ] || ARTE="$MESTRE"
+
+ICONES="${XDG_DATA_HOME:-$HOME/.local/share}/icons"
+TEMA=breeze-mono
+DIR="$ICONES/$TEMA"
+ESTADO="${XDG_DATA_HOME:-$HOME/.local/share}/telegram-tray-icon"
+
+# Nome do ícone = nome do arquivo .desktop, que é como o Telegram se
+# apresenta. Vale para o flatpak e para o RPM: os dois usam org.telegram.desktop.
+APP=org.telegram.desktop
+
+_erro() { printf '%s\n' "$*" >&2; exit 1; }
+
+_confere_app() {
+	local dir
+	for dir in "${XDG_DATA_HOME:-$HOME/.local/share}" ${XDG_DATA_DIRS//:/ } /usr/share; do
+		[ -f "$dir/applications/$APP.desktop" ] && return 0
+	done
+	_erro "Não achei $APP.desktop — o Telegram não parece estar instalado."
+}
+
+# Os três nomes sob os quais o mesmo desenho é gravado, por estado.
+_nomes() {
+	echo "$APP$1-symbolic.svg"
+	echo "telegram$1-panel.svg"
+	echo "telegram$1-panel-symbolic.svg"
+}
+
+_tema_em_uso() {
+	kreadconfig6 --file kdeglobals --group Icons --key Theme 2>/dev/null
+}
+
+_recarrega() {
+	# Cache de pixmaps já renderizados, guardado por grupo e sobrevivente a
+	# reinício do painel. Sem apagar, o painel continua desenhando o ícone
+	# velho por tempo indeterminado.
+	rm -f "$HOME/.cache/icon-cache.kcache"
+	# Índice de pasta lido pelo carregador do Qt ANTES de ele olhar a pasta.
+	# Um índice velho responde "não tem nada aqui" e o arquivo novo fica
+	# invisível. O nosso tema nunca tem um; apagar é garantia barata.
+	rm -f "$DIR/icon-theme.cache"
+	command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 --noincremental >/dev/null 2>&1
+	:
+}
+
+_aviso_painel() {
+	echo
+	echo "O painel guarda ícone em memória. Para ver agora:"
+	echo "  systemctl --user restart plasma-plasmashell.service"
+}
+
+case "${1:-}" in
+--ativar)
+	_confere_app
+	[ -f "$ARTE/telegram-symbolic.svg" ] \
+		|| _erro "Arte não encontrada em $MESTRE/arte nem em $MESTRE"
+
+	anterior=$(_tema_em_uso)
+	[ "$anterior" = "$TEMA" ] && anterior=""
+	base=${anterior:-breeze-dark}
+
+	# Cor declarada no arquivo. O Plasma a substitui pela cor de texto do
+	# painel — é para isso que serve o bloco `current-color-scheme` dentro do
+	# SVG —, mas quem renderiza o arquivo cru usa o que está escrito nele.
+	case "$base" in
+	*dark*|*Dark*) cor='#fcfcfc' ;;
+	*)             cor='#232629' ;;
+	esac
+
+	rm -rf "$DIR"
+	mkdir -p "$DIR/status/22" "$DIR/status/24" || _erro "Não consegui criar $DIR"
+	cat > "$DIR/index.theme" <<-FIM
+	[Icon Theme]
+	Name=Breeze Mono
+	Comment=Herda $base e troca só as marcas de bandeja deste pacote
+	Inherits=$base,breeze-dark,breeze,hicolor
+	Directories=status/22,status/24
+
+	[status/22]
+	Size=22
+	Type=Fixed
+	Context=Status
+
+	[status/24]
+	Size=24
+	Type=Fixed
+	Context=Status
+	FIM
+
+	for sub in status/22 status/24; do
+		for estado in "" "-attention" "-mute"; do
+			for nome in $(_nomes "$estado"); do
+				sed "s/#fcfcfc/$cor/" "$ARTE/telegram$estado-symbolic.svg" \
+					> "$DIR/$sub/$nome" || _erro "Não consegui escrever $DIR/$sub/$nome"
+			done
+		done
+	done
+
+	mkdir -p "$ESTADO"
+	printf '%s\n' "$anterior" > "$ESTADO/tema-anterior"
+	kwriteconfig6 --file kdeglobals --group Icons --key Theme "$TEMA" \
+		|| _erro "Não consegui trocar o tema de ícones."
+	_recarrega
+	echo "Ligado. Tema de ícones agora é '$TEMA', herdando '$base'."
+	echo "Só as marcas do Telegram mudam; o resto da fileira vem do tema herdado."
+	_aviso_painel
+	;;
+--desativar)
+	anterior=""
+	[ -f "$ESTADO/tema-anterior" ] && anterior=$(cat "$ESTADO/tema-anterior")
+	if [ "$(_tema_em_uso)" = "$TEMA" ]; then
+		if [ -n "$anterior" ]; then
+			kwriteconfig6 --file kdeglobals --group Icons --key Theme "$anterior"
+		else
+			# Não havia tema escolhido antes: a chave sai, e o Plasma volta a
+			# decidir sozinho — inclusive a trocar claro/escuro junto com o
+			# esquema de cores, que é o que ele faz quando ninguém fixa nada.
+			kwriteconfig6 --file kdeglobals --group Icons --key Theme --delete
+		fi
+	fi
+	rm -rf "$DIR" "$ESTADO"
+	rm -f "$HOME/.cache/icon-cache.kcache"
+	command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 --noincremental >/dev/null 2>&1
+	echo "Desligado. Tema de ícones devolvido${anterior:+ para '$anterior'}."
+	_aviso_painel
+	;;
+--estado)
+	if [ -f "$DIR/index.theme" ] && [ "$(_tema_em_uso)" = "$TEMA" ]; then
+		echo ligado
+	elif [ -f "$DIR/index.theme" ]; then
+		# Acontece: o Plasma reescreve o tema de ícones sozinho quando o
+		# esquema de cores muda de claro para escuro. Os arquivos ficam, a
+		# escolha some, e a bandeja volta ao ícone do sistema.
+		echo "desligado (arte no lugar, mas o tema em uso é '$(_tema_em_uso)' — rode --ativar de novo)"
+	else
+		echo desligado
+	fi
+	;;
+*)
+	cat <<-FIM
+	Marca do Telegram monocromática para a bandeja.
+
+	  telegram-tray-icon --ativar      liga a marca nova
+	  telegram-tray-icon --desativar   devolve o tema anterior
+	  telegram-tray-icon --estado      diz como está agora
+
+	Troca o avião de contorno fino do Breeze por um irmão da marca do
+	WhatsApp deste pacote — mesmo anel, mesma tinta — e troca o ponto azul
+	de não lidas por um ponto na cor do painel: cheio quando alerta, oco
+	quando as notificações estão silenciadas.
+
+	Para isso monta um tema de ícones pequeno em ~/.local/share/icons que
+	HERDA o tema em uso e só substitui as marcas do Telegram. Acrescentar
+	arquivo ao tema do sistema não funciona: medido, o painel lê o do /usr.
+	FIM
+	;;
+esac

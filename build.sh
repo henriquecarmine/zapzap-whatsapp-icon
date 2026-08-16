@@ -30,11 +30,29 @@ for n in 0 1 9 47; do
 done
 echo "gerador: ok em 0, 1, 9 e 47"
 
-# 3. Tarball para o rpmbuild.
+# 3. Arte do Telegram: ela é estática, então o que se confere é outra coisa —
+#    que o bloco de cor do Breeze continua lá. Sem ele o Plasma não tinge o
+#    ícone, e o arquivo sai na cor escrita dentro: invisível em metade dos
+#    painéis. É o tipo de erro que só aparece quando alguém troca de tema.
+for estado in "" "-attention" "-mute"; do
+	arquivo="telegram$estado-symbolic.svg"
+	grep -q "</svg>" "$arquivo" \
+		|| { echo "$arquivo não termina em </svg>" >&2; exit 1; }
+	grep -q 'id="current-color-scheme"' "$arquivo" \
+		|| { echo "$arquivo perdeu o bloco de cor do tema" >&2; exit 1; }
+	grep -q "fill:currentColor" "$arquivo" \
+		|| { echo "$arquivo não usa currentColor" >&2; exit 1; }
+done
+echo "arte do telegram: ok nos três estados"
+
+# 4. Tarball para o rpmbuild.
 rm -rf dist
 mkdir -p "dist/$NOME-$VERSAO/arte"
-cp hook/sitecustomize.py gerar.py README.md LICENSE $NOME "dist/$NOME-$VERSAO/"
-cp whatsapp-symbolic.svg whatsapp-symbolic-count.svg "dist/$NOME-$VERSAO/arte/"
+cp hook/sitecustomize.py gerar.py README.md LICENSE $NOME telegram-tray-icon \
+	"dist/$NOME-$VERSAO/"
+cp whatsapp-symbolic.svg whatsapp-symbolic-count.svg \
+	telegram-symbolic.svg telegram-attention-symbolic.svg \
+	telegram-mute-symbolic.svg "dist/$NOME-$VERSAO/arte/"
 ( cd dist && tar czf "$NOME-$VERSAO.tar.gz" "$NOME-$VERSAO" && rm -rf "$NOME-$VERSAO" )
 
 echo

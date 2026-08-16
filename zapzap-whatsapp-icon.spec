@@ -1,7 +1,7 @@
 Name:           zapzap-whatsapp-icon
-Version:        1.5
+Version:        1.6
 Release:        1%{?dist}
-Summary:        Monochrome WhatsApp tray icon for ZapZap, with a discreet unread counter
+Summary:        Monochrome tray marks for ZapZap (WhatsApp) and Telegram
 
 License:        MIT
 URL:            https://github.com/henriquecarmine/zapzap-whatsapp-icon
@@ -36,6 +36,23 @@ and pick a symbolic icon in ZapZap under Settings, Appearance. To undo:
 
     zapzap-whatsapp-icon --desativar
 
+The package also carries a second command, for the tray icon next to it:
+
+    telegram-tray-icon --ativar
+
+Telegram already asks the icon theme for its tray mark, so nothing is patched
+there. Breeze answers that request with a thin outlined plane — about half the
+ink of the WhatsApp mark beside it — and a BLUE dot for unread. Here both
+marks share the same ring and the same ink, and the dot is the panel's own
+colour: filled when it alerts, hollow when notifications are muted. Telegram
+does not expose the unread COUNT to the outside — only the three icon states —
+so this says "there is a message", not "there are 3".
+
+Adding files to a system theme does not work: measured, the panel keeps
+reading /usr. So --ativar builds a small icon theme of its own under
+~/.local/share/icons, carrying the Telegram marks and nothing else, which
+INHERITS the theme in use; --desativar puts the previous choice back.
+
 %prep
 %setup -q
 
@@ -46,12 +63,14 @@ install -m 0644 sitecustomize.py %{buildroot}%{_datadir}/%{name}/
 install -m 0644 arte/*.svg       %{buildroot}%{_datadir}/%{name}/arte/
 install -m 0644 gerar.py         %{buildroot}%{_datadir}/%{name}/
 install -m 0755 zapzap-whatsapp-icon %{buildroot}%{_bindir}/%{name}
+install -m 0755 telegram-tray-icon   %{buildroot}%{_bindir}/telegram-tray-icon
 
 %files
 %license LICENSE
 %doc README.md
 %{_datadir}/%{name}/
 %{_bindir}/%{name}
+%{_bindir}/telegram-tray-icon
 
 %post
 # Deliberately does NOT enable itself. Installing a package should not
@@ -63,6 +82,11 @@ install -m 0755 zapzap-whatsapp-icon %{buildroot}%{_bindir}/%{name}
 # On removal, take the override away — otherwise ZapZap keeps a PYTHONPATH
 # pointing at files that no longer exist, and its icon quietly falls back
 # with a warning on stderr nobody reads. $1 == 0 means uninstall, not upgrade.
+#
+# The icons written into the user's theme — ZapZap's and Telegram's — are NOT
+# removed here. They are whole files that depend on nothing this package
+# leaves behind, so a stale one keeps working instead of breaking; that is the
+# opposite of the override's problem. `--desativar` removes them.
 if [ "$1" = "0" ]; then
     for lar in /home/*; do
         [ -d "$lar" ] || continue
@@ -75,6 +99,47 @@ fi
 :
 
 %changelog
+* Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.6-1
+- New command, telegram-tray-icon, for the icon sitting next to ZapZap's.
+  Telegram already asks the theme for its tray mark, so there is nothing to
+  patch. Getting the theme to answer with our drawing took three findings,
+  each paid for on screen:
+  * The name asked for is NOT the name advertised. Telegram publishes
+    org.telegram.desktop-symbolic, but the panel opens telegram-panel —
+    caught with inotify on the theme directories. All three names are written
+    now.
+  * Adding files to a system theme does nothing. The same drawing under
+    ~/.local/share/icons/breeze-dark, every name, index.theme copied, caches
+    cleared: the panel still read /usr. Same in a directory that PRECEDES
+    /usr in XDG_DATA_DIRS. In a theme that exists in both places, the system
+    copy wins.
+  * A theme of one's own works. So --ativar now builds breeze-mono under
+    ~/.local/share/icons, carrying the Telegram marks and nothing else, and
+    INHERITING the theme in use. --desativar restores the previous choice.
+- kiconfinder6 answered with OUR file the whole time while the panel drew the
+  system one; it resolves through a path the tray does not use. Trusting it
+  cost hours. What settled it was watching the screen and the directories.
+- Documented the first wrong trail too: no icon at all in the tray usually
+  means the entry is switched off, not that the drawing is broken.
+  disabledStatusNotifiers in the panel config lists it, the item stays alive
+  and Active on the bus, and there is simply no slot for any icon to fill.
+- Breeze's answer was a thin outlined plane, about half the ink of the
+  WhatsApp mark beside it, plus a BLUE dot for unread. Ring and ink are now
+  measured from whatsapp-symbolic.svg rendered at 22 px, and the plane's
+  proportions traced from Telegram's own 256 px icon in the flatpak.
+- Unread is a dot in the panel's colour: filled when it alerts, hollow when
+  muted. Breeze told the two apart by colour, which is the one thing this
+  package will not use.
+- No counter, and none is possible: Telegram publishes only three icon states
+  and an empty tooltip, and emits no Unity count. Saying "there is a message"
+  is all the data there is.
+- The states are installed in status/22 AND status/24. Asked for 22, the
+  lookup served the file from 24; covering one leaves panel sizes on the old
+  icon.
+- README: the design section still described the first WhatsApp drawing, a
+  filled bubble with the handset knocked out. That was replaced in 1.2 by the
+  canonical outlined geometry and the text never caught up.
+
 * Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.5-1
 - --ativar now installs the application icon too, one variant per theme:
   light for breeze-dark, dark for breeze, mid grey in hicolor as fallback.
