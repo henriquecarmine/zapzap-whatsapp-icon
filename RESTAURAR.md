@@ -66,6 +66,10 @@ Estes são cliques, e é por isso que estão escritos:
   `extraItems`, **dentro** de `knownItems`, e sem grupo de instância. Tudo em
   `~/.config/plasma-org.kde.plasma.desktop-appletsrc`, com o plasmashell
   parado.
+- **Avisos de conexão do Fedora:** o lugar certo de desligar é nas
+  **configurações de rede** do sistema, não no adaptador — dica do dono da
+  máquina, depois de a gente perder tempo silenciando o mensageiro em vez da
+  origem.
 - **Avisos do NetworkManager silenciados** (pop-up desligado, histórico
   mantido):
 
