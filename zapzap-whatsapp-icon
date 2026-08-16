@@ -18,6 +18,7 @@ MESTRE=${ZAPZAP_ICON_DIR:-/usr/share/zapzap-whatsapp-icon}
 # silêncio: o ZapZap abre com o ícone original e ninguém entende por quê.
 # O lar já está nas permissões do aplicativo, então a cópia mora aqui.
 GANCHO="${XDG_DATA_HOME:-$HOME/.local/share}/zapzap-whatsapp-icon"
+ICONES="${XDG_DATA_HOME:-$HOME/.local/share}/icons"
 
 _erro() { printf '%s\n' "$*" >&2; exit 1; }
 
@@ -47,6 +48,30 @@ case "${1:-}" in
 	flatpak override --user --filesystem="$GANCHO:ro" \
 		--env=PYTHONPATH="$GANCHO" "$APP" \
 		|| _erro "Não consegui aplicar o override."
+	# Ícone do APLICATIVO — o que aparece no menu, na barra de tarefas e ao
+	# lado do título da notificação. É outro ícone que o da bandeja, e o
+	# ZapZap não o controla: quem resolve é o tema.
+	#
+	# Uma variante por tema, porque ícone de aplicativo NÃO é tingido: ele
+	# desenha com a cor do arquivo. Claro no breeze-dark, escuro no breeze,
+	# cinza médio no hicolor para os demais.
+	#
+	# Vai nas pastas que o índice do tema DECLARA. O breeze não declara
+	# apps/scalable, e arquivo em pasta não declarada é ignorado em silêncio.
+	_por_tema() {
+		tema=$1; cor=$2; shift 2
+		for sub in "$@"; do
+			mkdir -p "$ICONES/$tema/$sub" || continue
+			sed "s/#ffffff/$cor/" "$MESTRE/arte/whatsapp-symbolic.svg" \
+				> "$ICONES/$tema/$sub/com.rtosta.zapzap.svg"
+		done
+	}
+	_por_tema breeze-dark '#f4f5f6' apps/48 apps/32 apps/22 apps/16
+	_por_tema breeze      '#232629' apps/48 apps/32 apps/22 apps/16
+	_por_tema hicolor     '#8b9296' scalable/apps
+	rm -f "$HOME/.cache/icon-cache.kcache"
+	command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 --noincremental >/dev/null 2>&1
+
 	echo "Ligado. Feche e reabra o ZapZap para ver."
 	echo "Depois, em Configurações → Aparência, escolha um ícone simbólico —"
 	echo "no tema 'default' o ZapZap mantém o logo verde dele, de propósito."
@@ -56,6 +81,11 @@ case "${1:-}" in
 	flatpak override --user --nofilesystem="$GANCHO" --unset-env=PYTHONPATH "$APP" \
 		|| _erro "Não consegui remover o override."
 	rm -rf "$GANCHO"
+	for tema in breeze-dark breeze hicolor; do
+		find "$ICONES/$tema" -name "com.rtosta.zapzap.svg" -delete 2>/dev/null
+	done
+	rm -f "$HOME/.cache/icon-cache.kcache"
+	command -v kbuildsycoca6 >/dev/null && kbuildsycoca6 --noincremental >/dev/null 2>&1
 	echo "Desligado. Feche e reabra o ZapZap para voltar ao ícone original."
 	;;
 --estado)

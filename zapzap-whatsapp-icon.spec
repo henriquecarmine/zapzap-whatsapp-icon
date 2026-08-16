@@ -1,5 +1,5 @@
 Name:           zapzap-whatsapp-icon
-Version:        1.4
+Version:        1.5
 Release:        1%{?dist}
 Summary:        Monochrome WhatsApp tray icon for ZapZap, with a discreet unread counter
 
@@ -75,6 +75,20 @@ fi
 :
 
 %changelog
+* Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.5-1
+- --ativar now installs the application icon too, one variant per theme:
+  light for breeze-dark, dark for breeze, mid grey in hicolor as fallback.
+  An application icon is NOT tinted by the theme — it renders in whatever
+  colour the file carries — so a single currentColor version came out
+  invisible on a dark panel.
+- The variants go in directories the theme's index DECLARES. Breeze does not
+  declare apps/scalable, and a file in an undeclared directory is ignored in
+  silence; apps/48 is Type=Scalable Min=48 Max=256 and takes an SVG.
+- --desativar removes them again.
+- TrayIcon.getIcon() called with no argument now follows the user's chosen
+  theme instead of defaulting to green. Three call sites did that: the window
+  icon, notifications, and the icon renderer.
+
 * Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.4-1
 - Notifications follow the chosen tray theme too. IconRenderer.default_icon
   called TrayIcon.getIcon() with no argument, so it always got the green

@@ -120,8 +120,24 @@ def _instalar():
                           .replace("{size}", str(corpo))
                           .replace("{stroke}", str(traco)))
 
+        _SEM_TEMA = object()
+
+        def _tema_do_usuario():
+            from zapzap.core.config.settings.appearance import AppearanceSettings
+            return TrayIcon.Type(AppearanceSettings().tray_theme)
+
         @staticmethod
-        def getIcon(theme=TrayIcon.Type.Default, qtd=0):
+        def getIcon(theme=_SEM_TEMA, qtd=0):
+            # Chamado SEM tema, o padrão do ZapZap é Type.Default — o logo
+            # verde. Três lugares fazem isso e por isso ficavam coloridos
+            # mesmo com o usuário tendo escolhido simbólico: a janela
+            # (`app.setWindowIcon`), a notificação e o ícone do aplicativo.
+            # Sem argumento, passa a valer a escolha do usuário.
+            if theme is _SEM_TEMA:
+                try:
+                    theme = _tema_do_usuario()
+                except Exception:             # noqa: BLE001
+                    theme = TrayIcon.Type.Default
             # O tema `default` é do ZapZap e não se mexe nele.
             if theme == TrayIcon.Type.Default:
                 return original(theme, qtd)

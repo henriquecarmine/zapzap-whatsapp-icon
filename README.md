@@ -86,6 +86,40 @@ remendo falhava em silêncio: o instalador dizia "Ligado", o override estava
 aplicado, e o ícone continuava o original. Por isso o `--ativar` copia o
 gancho para `~/.local/share` antes de apontar.
 
+## O que ele troca
+
+| superfície | de onde vinha o verde |
+|---|---|
+| bandeja | `TrayIcon.getIcon(tema)` |
+| notificação | `IconRenderer.default_icon` chamava sem tema |
+| janela e barra de tarefas | `app.setWindowIcon(TrayIcon.getIcon())`, sem tema |
+| menu de aplicativos | ícone do tema, exportado pelo flatpak |
+
+As três primeiras se resolvem no gancho: `getIcon()` chamado **sem
+argumento** passou a seguir a escolha do usuário em vez de cair no verde. A
+quarta é o tema de ícones, e o `--ativar` instala uma variante por tema —
+clara no `breeze-dark`, escura no `breeze`, cinza médio no `hicolor`.
+
+Ícone de aplicativo **não é tingido** pelo tema: ele desenha com a cor do
+arquivo. Uma versão única com `currentColor` saiu invisível sobre painel
+escuro. E as variantes vão em pastas que o índice do tema **declara** — o
+breeze não declara `apps/scalable`, e arquivo em pasta não declarada é
+ignorado sem aviso.
+
+## Fora de alcance
+
+A notificação espelhada do celular pelo KDE Connect **não** pode ser trocada.
+Grampeando o barramento na hora que uma chega:
+
+```
+string "KDE Connect"
+string "kdeconnect"        ← app_icon: o ícone pequeno
+string "image_data"        ← o logo grande: 66×66, RGBA, bytes crus
+```
+
+O desenho vem pronto do Android como pixels. Não há nome de ícone para
+redirecionar nem arquivo para substituir.
+
 ## Sobre a marca
 
 O símbolo do WhatsApp é marca registrada da Meta. Aqui ele é usado para
