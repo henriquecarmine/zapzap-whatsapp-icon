@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# Liga e desliga o ícone do WhatsApp monocromático no ZapZap em flatpak.
+#
+# Não escreve NADA dentro do flatpak — ele é somente leitura e continua se
+# atualizando pelo Flathub normalmente. O que se faz é apontar o PYTHONPATH
+# do aplicativo para um gancho, por `flatpak override`, que remenda o ícone
+# em tempo de execução. Desligar é remover o override.
+set -uo pipefail
+
+APP=com.rtosta.zapzap
+# Cópia-mestre, entregue pelo pacote.
+MESTRE=${ZAPZAP_ICON_DIR:-/usr/share/zapzap-whatsapp-icon}
+# Cópia de trabalho, no lar do usuário.
+#
+# O flatpak RECUSA compartilhar /usr com o sandbox — "O caminho /usr está
+# reservado pelo Flatpak" —, porque o sandbox tem o /usr dele. Apontar o
+# PYTHONPATH para lá faz o gancho ficar inalcançável e o remendo falhar em
+# silêncio: o ZapZap abre com o ícone original e ninguém entende por quê.
+# O lar já está nas permissões do aplicativo, então a cópia mora aqui.
+GANCHO="${XDG_DATA_HOME:-$HOME/.local/share}/zapzap-whatsapp-icon"
+
+_erro() { printf '%s\n' "$*" >&2; exit 1; }
+
+_confere_app() {
+	flatpak info "$APP" >/dev/null 2>&1 \
+		|| _erro "O ZapZap em flatpak ($APP) não está instalado."
+}
+
+_estado() {
+	flatpak override --user --show "$APP" 2>/dev/null \
+		| grep -q "PYTHONPATH=$GANCHO" && echo ligado || echo desligado
+}
+
+case "${1:-}" in
+--ativar)
+	_confere_app
+	[ -f "$MESTRE/sitecustomize.py" ] || _erro "Cópia-mestre não encontrada em $MESTRE"
+	# Refaz a cópia a cada ativação: assim uma atualização do pacote chega
+	# ao gancho em uso, em vez de deixar uma cópia velha rodando.
+	rm -rf "$GANCHO"
+	mkdir -p "$GANCHO" || _erro "Não consegui criar $GANCHO"
+	cp -a "$MESTRE/sitecustomize.py" "$MESTRE/arte" "$GANCHO/" \
+		|| _erro "Não consegui copiar o gancho para $GANCHO"
+	# O caminho precisa estar VISÍVEL para o sandbox, além de estar no
+	# PYTHONPATH: sem o --filesystem o Python acha a variável e não acha o
+	# arquivo, e o remendo falha em silêncio.
+	flatpak override --user --filesystem="$GANCHO:ro" \
+		--env=PYTHONPATH="$GANCHO" "$APP" \
+		|| _erro "Não consegui aplicar o override."
+	echo "Ligado. Feche e reabra o ZapZap para ver."
+	echo "Depois, em Configurações → Aparência, escolha um ícone simbólico —"
+	echo "no tema 'default' o ZapZap mantém o logo verde dele, de propósito."
+	;;
+--desativar)
+	_confere_app
+	flatpak override --user --nofilesystem="$GANCHO" --unset-env=PYTHONPATH "$APP" \
+		|| _erro "Não consegui remover o override."
+	rm -rf "$GANCHO"
+	echo "Desligado. Feche e reabra o ZapZap para voltar ao ícone original."
+	;;
+--estado)
+	_confere_app
+	echo "$(_estado)"
+	;;
+*)
+	cat <<-FIM
+	Ícone do WhatsApp monocromático para o ZapZap.
+
+	  zapzap-whatsapp-icon --ativar      liga o ícone remendado
+	  zapzap-whatsapp-icon --desativar   volta ao original
+	  zapzap-whatsapp-icon --estado      diz como está agora
+
+	Nos temas simbólicos, troca o "Z" do ZapZap pela marca do WhatsApp e
+	substitui a pílula vermelha do contador por um dígito na mesma cor do
+	glifo, com um vão aberto atrás. O tema 'default' não é tocado.
+	FIM
+	;;
+esac

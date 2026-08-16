@@ -1,0 +1,12 @@
+# Arte copiada na construção — a fonte fica na raiz.
+hook/arte/
+
+# Artefatos de distribuição.
+dist/
+*.tar.gz
+*.rpm
+
+# Clone do upstream, usado só para conferir o alvo do remendo.
+upstream/
+
+__pycache__/
