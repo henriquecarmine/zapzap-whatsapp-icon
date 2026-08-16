@@ -26,8 +26,16 @@ novo — o `--estado` avisa quando isso aconteceu.
 ```bash
 git clone https://github.com/henriquecarmine/plasma-wifi-generation
 cd plasma-wifi-generation && ./build.sh
-kpackagetool6 --type Plasma/Applet --install package
+cp dist/plasma-applet-wifi-generation-*.tar.gz ~/rpmbuild/SOURCES/
+rpmbuild -ba plasma-applet-wifi-generation.spec
+sudo dnf install ~/rpmbuild/RPMS/noarch/plasma-applet-wifi-generation-*.noarch.rpm
 ```
+
+Pelo RPM, e não por `kpackagetool6`: o widget carrega um script auxiliar e
+catálogos de tradução, e o pacote é o que garante que os três cheguem juntos
+e saiam juntos. Instalando na pasta do usuário, uma cópia velha em
+`~/.local/share/plasma/plasmoids` passa na frente da do sistema e o painel
+mostra a versão errada sem avisar.
 
 ## 3. O widget de clima
 
