@@ -57,6 +57,26 @@ Estes são cliques, e é por isso que estão escritos:
   destoando do "6" do wifi e da temperatura do clima.
 - **Widgets na bandeja:** wifi e clima moram *dentro* da bandeja, não soltos
   no painel — é onde o desenho de um slot quadrado faz sentido.
+- **Applet de redes do KDE, desativado.** Ele duplica o widget de wifi e
+  enche a tela de avisos quando uma conexão falha em laço. Desativar tem uma
+  sutileza: **não basta tirá-lo de `extraItems`**. O Plasma reativa sozinho
+  qualquer applet de bandeja que ele considere novidade, e "novidade" é o que
+  não está em `knownItems` — limpar as duas listas fazia o applet voltar a
+  cada reinício, com outro identificador. O que gruda é: fora de
+  `extraItems`, **dentro** de `knownItems`, e sem grupo de instância. Tudo em
+  `~/.config/plasma-org.kde.plasma.desktop-appletsrc`, com o plasmashell
+  parado.
+- **Avisos do NetworkManager silenciados** (pop-up desligado, histórico
+  mantido):
+
+  ```bash
+  kwriteconfig6 --file plasmanotifyrc --group Applications --group plasma_nm \
+      --key ShowPopups false
+  ```
+
+  Vale lembrar que o barulho costuma ser sintoma: um cabo que não recebe DHCP
+  faz o NetworkManager tentar de 45 em 45 segundos, e cada volta gera aviso.
+  Curar a causa é `nmcli connection modify "<perfil>" connection.autoconnect no`.
 
 ## Ordem que importa
 
