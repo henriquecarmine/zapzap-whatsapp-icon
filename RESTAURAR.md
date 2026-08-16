@@ -103,3 +103,17 @@ systemctl --user restart plasma-plasmashell.service
 
 E atualize widget sempre com o painel **parado** — com ele no ar, o Plasma
 perde a instância do applet e grava a configuração sem ela ao sair.
+
+Se depois de atualizar o painel insistir num erro de QML que o arquivo do
+disco não tem mais, o culpado é o **cache compilado do Qt**:
+
+```bash
+systemctl --user stop plasma-plasmashell.service
+rm -rf ~/.cache/plasmashell/qmlcache
+systemctl --user start plasma-plasmashell.service
+```
+
+Ele decide se está velho pela data do fonte, e o RPM do Fedora grampeia a data
+de todos os arquivos na data do changelog — dois pacotes diferentes do mesmo
+dia chegam ao disco com a mesma data, e o cache jura estar em dia. O
+`plasma-wifi-generation` já desliga esse grampo no próprio `.spec`.
