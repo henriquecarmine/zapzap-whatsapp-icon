@@ -1,5 +1,5 @@
 Name:           zapzap-whatsapp-icon
-Version:        1.1
+Version:        1.2
 Release:        1%{?dist}
 Summary:        Monochrome WhatsApp tray icon for ZapZap, with a discreet unread counter
 
@@ -75,6 +75,17 @@ fi
 :
 
 %changelog
+* Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.2-1
+- The mark is now the canonical WhatsApp geometry: an OUTLINED bubble with a
+  filled handset. The previous drawing was the negative of that — a filled
+  bubble with the handset knocked out — and the handset was too narrow.
+  Checked against the authentic favicons pulled from WhatsApp Web's own cache
+  inside ZapZap.
+- With a counter, the mark shrinks and yields the bottom-right corner to the
+  digit. Swapping the geometry broke the badge: a filled mark has solid area
+  for the gap to punch, an outlined one does not, and the gap was destroying
+  the outline instead of clearing space.
+
 * Sun Aug 16 2026 Henrique Carmine <henriquecarmine@gmail.com> - 1.1-1
 - Fix: the hook is now copied into the user's home before being pointed at.
   Flatpak REFUSES to share /usr with the sandbox ("the path /usr is reserved

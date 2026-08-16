@@ -19,8 +19,8 @@ SIMPLES = AQUI / "whatsapp-symbolic.svg"
 # which is the size that actually matters — a tray icon that only works at
 # 256 px is a drawing, not an icon.
 TAMANHOS = {
-    1: (104, 24),
-    2: (82, 20),
+    1: (112, 16),
+    2: (88, 14),
 }
 
 
